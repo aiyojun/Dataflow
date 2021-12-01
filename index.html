@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>vision-2</title>
+    <link rel="icon" type="image/png" href="vision.png">
+    <link rel="stylesheet" type="text/css" href="index.css">
+</head>
+<body>
+    <div class="cls-topbar">
+        <label>Machine Vision V2.0</label>
+    </div>
+
+    <div class="cls-background">
+        <div class="cls-module-options">
+            <label>图像算法</label>
+            <ul>
+                <li onclick="createModule('', 'gray.png', '#F2DCDB')">灰度化</li>
+                <li onclick="createModule('', 'RGB.png', '#FCCABC')">RGB提取</li>
+                <li onclick="createModule('', 'wave.png', '#E38899')">滤波</li>
+                <li onclick="createModule('', 'matrix.png', '#6E8DC2')">卷积</li>
+            </ul>
+        </div>
+
+
+
+        <div class="cls-model-area">
+            <svg id="i-svg-area" class="cls-svg-area" xmlns="http://www.w3.org/2000/svg" version="1.1">
+                <rect id="i-svg-background"/>
+            </svg>
+        </div>
+
+        <div class="cls-module-settings">
+
+        </div>
+    </div>
+
+    <script>
+        let hashSpace = {};
+
+        let VG = {
+            ns: 'http://www.w3.org/2000/svg',
+            area: document.getElementById('i-svg-area'),
+            background: document.getElementById('i-svg-background'),
+            create: function (element, data) {
+                let _r = document.createElementNS(this.ns, element);
+                for (let k in data) {
+                    _r.setAttribute(k, data[k]);
+                }
+                return _r;
+            },
+        };
+
+        let mouse = {
+            isMouseDown: false,
+            groupElements: [],
+            outStartPoint: [],
+            inStartPoint: [],
+            outLine: null,
+            inLine: null,
+            startPoints: [],
+            startOffsetX: 0,
+            startOffsetY: 0,
+            reset: function () {
+                this.startOffsetX = 0;
+                this.startOffsetY = 0;
+                this.groupElements = [];
+                this.startPoints = [];
+            }
+        };
+
+        let focusState = {
+            hasFocus: false,
+            target: null,
+            set: function (g) {
+                this.cancel();
+                this.target = g;
+                this.hasFocus = true;//#33a3dc
+                this.target.setAttribute('style', '');// 'stroke:gray;stroke-width:1;');
+                this.target.setAttribute('stroke-dasharray', "5, 5");
+                // console.info("get : " + this.target.getAttribute('style'));
+            },
+            cancel: function () {
+                if (this.hasFocus) {
+                    this.hasFocus = false;
+                }
+                if (this.target !== null) {
+                    this.target.setAttribute('style', ';');
+                    this.target = null;
+                }
+            }
+        };
+
+        VG.background.addEventListener('click', function (event) {
+            // console.info("click background");
+            focusState.cancel();
+        });
+
+        // VG.area.addEventListener('click', function (event) {
+        // });
+
+        document.addEventListener('mouseup', function (event) {
+            if (drawLine.isDrawing) {
+                drawLine.isDrawing = false;
+                VG.area.removeChild(drawLine.lineObject);
+            }
+            mouse.isMouseDown = false;
+            mouse.reset();
+        });
+
+        document.addEventListener('mousemove', function (event) {
+            if (drawLine.isDrawing) {
+                // let x_bias = event.offsetX - drawLine.startOffsetX;
+                // let y_bias = event.offsetY - drawLine.startOffsetY;
+                // let x_curr = drawLine.startPoints[0] + x_bias;
+                // let y_curr = drawLine.startPoints[1] + y_bias;
+                drawLine.lineObject.setAttribute('x2', `${event.offsetX - 2}`);
+                drawLine.lineObject.setAttribute('y2', `${event.offsetY - 2}`);
+                return;
+            }
+
+            if (mouse.isMouseDown) {
+                let x_bias = event.offsetX - mouse.startOffsetX;
+                let y_bias = event.offsetY - mouse.startOffsetY;
+                // console.info('--> move x bias: ' + x_bias + '; y bias: ' + y_bias + '; p0 (' + mouse.startOffsetX + ", " + mouse.startOffsetY + ");");
+                for (let idx in mouse.groupElements) {
+                    let obj = mouse.groupElements[idx];
+                    if (obj.getAttribute('cx') !== null) {
+                        obj.setAttribute('cx', (mouse.startPoints[idx][0] + x_bias).toString());
+                        obj.setAttribute('cy', (mouse.startPoints[idx][1] + y_bias).toString());
+                    } else {
+                        obj.setAttribute('x', (mouse.startPoints[idx][0] + x_bias).toString());
+                        obj.setAttribute('y', (mouse.startPoints[idx][1] + y_bias).toString());
+                    }
+                }
+                if (mouse.inLine !== null) {
+                    mouse.inLine.setAttribute('x2', (mouse.inStartPoint[0] + x_bias).toString())
+                    mouse.inLine.setAttribute('y2', (mouse.inStartPoint[1] + y_bias).toString())
+                }
+                if (mouse.outLine !== null) {
+                    mouse.outLine.setAttribute('x1', (mouse.outStartPoint[0] + x_bias).toString())
+                    mouse.outLine.setAttribute('y1', (mouse.outStartPoint[1] + y_bias).toString())
+                }
+            }
+        });
+
+        function uuid() {
+            return new Date().getTime().toString()
+                + Math.round(Math.random()*10)
+                + Math.round(Math.random()*10)
+                + Math.round(Math.random()*10)
+                + Math.round(Math.random()*10)
+                + Math.round(Math.random()*10)
+                ;
+        }
+
+        let drawLine = {
+            isDrawing: false,
+            outPort: null,
+            startPoints: [],
+            startOffsetX: 0,
+            startOffsetY: 0,
+            lineObject: null,
+        };
+
+        function createModule(moduleName, moduleIcon, moduleColor) {
+            let postfix = uuid();
+            let M = [10, 10];
+            let L = 56;
+            let l = 36;
+            let R = 6;
+            let RW = 5;
+            let group = VG.create('g');
+            let outline = null;
+            let inline = null;
+
+            group.setAttribute('class', 'cls-cursor-move');
+
+            let block = VG.create('rect', {
+                'x': M[0].toString(), 'y': M[1].toString(),
+                'width': L.toString(), 'height': L.toString(),
+                'fill': 'none',
+                'stroke': 'none',
+            });
+
+            let inPort = VG.create('circle', {
+                'class': 'cls-port-style',
+                'cx': (M[0]).toString(),
+                'cy': (M[1] + L / 2).toString(),
+                'r': R,
+                'stroke': moduleColor,
+                'stroke-width': RW,
+                'fill': 'white',
+            });
+
+            let outPort = VG.create('circle', {
+                'class': 'cls-port-style',
+                'cx': (M[0] + L).toString(),
+                'cy': (M[1] + L / 2).toString(),
+                'r': R,
+                'stroke': moduleColor,
+                'stroke-width': RW,
+                'fill': 'white',
+            });
+
+            outPort.addEventListener('mouseover', function () {
+                outPort.setAttribute('fill', 'red');
+            });
+
+            outPort.addEventListener('mousedown', function (event) {
+                console.info("start draw line ... " + `(${event.offsetX}, ${event.offsetY})`);
+                drawLine.isDrawing = true;
+                drawLine.startPoints.push(event.offsetX);
+                drawLine.startPoints.push(event.offsetY);
+                let lineObject = VG.create('line', {
+                    'style': 'stroke:#ffffff; stroke-width:2;stroke-linecap:round;',
+                    'x1': `${parseInt(outPort.getAttribute('cx'))}`,
+                    'y1': `${parseInt(outPort.getAttribute('cy'))}`,
+                    'x2': `${parseInt(outPort.getAttribute('cx'))}`,
+                    'y2': `${parseInt(outPort.getAttribute('cy'))}`,
+                });
+                outline = lineObject;
+                drawLine.lineObject = lineObject;
+                VG.area.appendChild(lineObject);
+                // outPort.setAttribute('fill', 'red');
+                drawLine.outPort = outPort;
+            });
+
+            outPort.addEventListener('mouseout', function () {
+                // if (!drawLine.isDrawing) {
+                    outPort.setAttribute('fill', 'white');
+                // }
+            });
+
+            inPort.addEventListener('mouseover', function () {
+                inPort.setAttribute('fill', 'red');
+            });
+
+            inPort.addEventListener('mouseout', function () {
+                inPort.setAttribute('fill', 'white');
+            });
+
+            inPort.addEventListener('mouseup', function (event) {
+                if (drawLine.isDrawing) {
+                    drawLine.isDrawing = false;
+                    drawLine.lineObject.setAttribute('x2', `${parseInt(inPort.getAttribute('cx'))}`);
+                    drawLine.lineObject.setAttribute('y2', `${parseInt(inPort.getAttribute('cy'))}`);
+                    drawLine.outPort.setAttribute('fill', 'white');
+                    inline = drawLine.lineObject;
+                }
+                console.info('complete draw line: ' + postfix);
+            });
+
+            let back = VG.create('rect', {
+                'x': M[0].toString(), 'y': M[1].toString(),
+                'width': L.toString(), 'height': L.toString(),
+                'rx': (L * 20 / 56).toString(), 'ry': (L * 20 / 56).toString(),
+                'fill': moduleColor,//'#ff6700',
+            });
+
+
+            let img = VG.create('image', {//'RGB.png'
+                'href': moduleIcon, 'width': l.toString(), 'height': l.toString(),
+                'x': (M[0] + (L - l) / 2).toString(),
+                'y': (M[1] + (L - l) / 2).toString(),
+            });
+
+            /* register events */
+            group.addEventListener('click', function (event) {
+                // let block = hashSpace[`block-${postfix}`];
+                // let back = hashSpace[`back-${postfix}`];
+                // let img = hashSpace[`img-${postfix}`];
+                // let group = hashSpace[`group-${postfix}`];
+                focusState.set(block);
+            });
+
+            group.addEventListener('mousedown', function (event) {
+                // let block = hashSpace[`block-${postfix}`];
+                // let back = hashSpace[`back-${postfix}`];
+                // let img = hashSpace[`img-${postfix}`];
+                // let group = hashSpace[`group-${postfix}`];
+                focusState.set(block);//hashSpace[`back-${postfix}`]
+                mouse.startPoints.push([parseInt(back.getAttribute('x')), parseInt(back.getAttribute('y'))]);
+                mouse.startPoints.push([parseInt(img.getAttribute('x')), parseInt(img.getAttribute('y'))]);
+                mouse.startPoints.push([parseInt(block.getAttribute('x')), parseInt(block.getAttribute('y'))]);
+                mouse.startPoints.push([parseInt(outPort.getAttribute('cx')), parseInt(outPort.getAttribute('cy'))]);
+                mouse.startPoints.push([parseInt(inPort.getAttribute('cx')), parseInt(inPort.getAttribute('cy'))]);
+                mouse.startOffsetX = event.offsetX;
+                mouse.startOffsetY = event.offsetY;
+                mouse.isMouseDown = true;
+                mouse.groupElements.push(back);
+                mouse.groupElements.push(img);
+                mouse.groupElements.push(block);
+                mouse.groupElements.push(outPort);
+                mouse.groupElements.push(inPort);
+                mouse.outLine = outline;
+                mouse.inLine = inline;
+                mouse.inStartPoint = [parseInt(inPort.getAttribute('cx')), parseInt(inPort.getAttribute('cy'))];
+                mouse.outStartPoint = [parseInt(outPort.getAttribute('cx')), parseInt(outPort.getAttribute('cy'))];
+            });
+
+            // hashSpace[`group-${postfix}`] = group;
+            // hashSpace[`block-${postfix}`] = block;
+            // hashSpace[`back-${postfix}`] = back;
+            // hashSpace[`img-${postfix}`] = img;
+            group.appendChild(block);
+            group.appendChild(back);
+            group.appendChild(img);
+            // group.appendChild(outPort);
+            // group.appendChild(inPort);
+            VG.area.appendChild(group);
+            VG.area.appendChild(inPort);
+            VG.area.appendChild(outPort);
+        }
+
+        // window.onload = function () {
+        //     createModule();
+        // };
+
+        window.onchange = function () {
+            VG.background.style.width = '100%';
+        };
+
+
+        let model = {
+            add: function (module) {
+                // createModule('', 'RGB.png');
+            }
+        };
+    </script>
+</body>
+</html>

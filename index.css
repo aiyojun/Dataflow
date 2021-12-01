@@ -1,0 +1,82 @@
+* {
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+}
+
+.cls-topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    height: 60px;
+    background-color: white;
+}
+
+.cls-background {
+    position: relative;
+    z-index: 1;
+    
+    width: 100%;
+    height: 100%;
+    background-color: #bfbfbf;
+}
+
+.cls-module-options {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+
+    width: 220px;
+    height: calc(100% - 60px);
+    background-color: white;
+}
+
+.cls-model-area {
+    position: absolute;
+    bottom: 0;
+
+    margin-left: 220px;
+    width: calc(100% - 220px - 220px);
+    height: calc(100% - 60px);
+}
+
+.cls-module-settings {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+
+    width: 220px;
+    height: calc(100% - 60px);
+    background-color: white;
+}
+
+.cls-svg-area {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+.cls-cursor-move {
+    /*cursor: move;*/
+}
+
+#i-svg-background {
+    width: 100%;
+    height: 100%;
+    fill: #272727;
+    stroke: red;
+    stroke-width: 1;
+}
+
+.cls-port-style {
+    /*stroke: lightgreen;*/
+    /*stroke-width: 2;*/
+    /*fill: white;*/
+}
